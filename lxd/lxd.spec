@@ -72,7 +72,7 @@ Requires(pre): container-selinux >= 2:2.38
 Requires(pre): shadow-utils
 
 %if %{with check}
-BuildRequires:  btrfs-progs
+#BuildRequires:  btrfs-progs
 BuildRequires:  dnsmasq
 BuildRequires:  ebtables
 BuildRequires:  iptables
