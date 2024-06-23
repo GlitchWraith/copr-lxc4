@@ -38,8 +38,6 @@ BuildRequires:  pkg-config
 BuildRequires:  systemd-devel
 BuildRequires:  pkgconfig(dbus-1)
 
-BuildRequires:  libcap-static
-BuildRequires:  glibc-static
 
 # lxc-extra subpackage not needed anymore, lxc-ls has been rewriten in
 # C and does not depend on the Python3 binding anymore
@@ -226,7 +224,6 @@ cp -a %{SOURCE1} %{buildroot}%{_sysconfdir}/sysconfig/%{name}-net
 # fixme: should be in libexecdir?
 %{_sbindir}/init.%{name}
 
-%{_sbindir}/init.%{name}.static
 
 %{_bindir}/%{name}-autostart
 %{_sharedstatedir}/%{name}
