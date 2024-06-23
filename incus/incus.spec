@@ -84,7 +84,6 @@ Requires:       xz
 %{?systemd_requires}
 
 %if %{with check}
-BuildRequires:  btrfs-progs
 BuildRequires:  dnsmasq
 BuildRequires:  nftables
 %endif
