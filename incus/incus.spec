@@ -185,25 +185,25 @@ Summary:        Container hypervisor based on LXC - Documentation
 License:        Apache-2.0 AND BSD-2-Clause AND MIT
 BuildArch:      noarch
 
-BuildRequires:  python3-furo
-BuildRequires:  python3-linkify-it-py
-BuildRequires:  python3-lxd-sphinx-extensions
-BuildRequires:  python3-myst-parser
-BuildRequires:  python3-sphinx
-BuildRequires:  python3-sphinx-copybutton
-BuildRequires:  python3-sphinx-design
-BuildRequires:  python3-sphinx-notfound-page
-BuildRequires:  python3-sphinx-remove-toctrees
-BuildRequires:  python3-sphinx-reredirects
-BuildRequires:  python3-sphinx-tabs
-BuildRequires:  python3-sphinxcontrib-applehelp
-BuildRequires:  python3-sphinxcontrib-devhelp
-BuildRequires:  python3-sphinxcontrib-htmlhelp
-BuildRequires:  python3-sphinxcontrib-jquery
-BuildRequires:  python3-sphinxcontrib-jsmath
-BuildRequires:  python3-sphinxcontrib-qthelp
-BuildRequires:  python3-sphinxcontrib-serializinghtml
-BuildRequires:  python3-sphinxext-opengraph
+#BuildRequires:  python3-furo
+#BuildRequires:  python3-linkify-it-py
+#BuildRequires:  python3-lxd-sphinx-extensions
+#BuildRequires:  python3-myst-parser
+#BuildRequires:  python3-sphinx
+#BuildRequires:  python3-sphinx-copybutton
+#BuildRequires:  python3-sphinx-design
+#BuildRequires:  python3-sphinx-notfound-page
+#BuildRequires:  python3-sphinx-remove-toctrees
+#BuildRequires:  python3-sphinx-reredirects
+#BuildRequires:  python3-sphinx-tabs
+#BuildRequires:  python3-sphinxcontrib-applehelp
+#BuildRequires:  python3-sphinxcontrib-devhelp
+#BuildRequires:  python3-sphinxcontrib-htmlhelp
+#BuildRequires:  python3-sphinxcontrib-jquery
+#BuildRequires:  python3-sphinxcontrib-jsmath
+#BuildRequires:  python3-sphinxcontrib-qthelp
+#BuildRequires:  python3-sphinxcontrib-serializinghtml
+#BuildRequires:  python3-sphinxext-opengraph
 
 %description doc
 Incus offers a REST API to remotely manage containers over the network,
@@ -239,17 +239,17 @@ mkdir %{gobuilddir}/completions
 %{gobuilddir}/bin/%{name} completion zsh > %{gobuilddir}/completions/%{name}.zsh
 
 # build documentation
-mkdir -p doc/.sphinx/_static/swagger-ui
-cp %{SOURCE201} %{SOURCE202} %{SOURCE203} doc/.sphinx/_static/swagger-ui
-sed -i 's|^path.*$|path = "%{gobuilddir}"|' doc/conf.py
-sphinx-build -c doc/ -b dirhtml doc/ doc/html/
-rm -vrf doc/html/{.buildinfo,.doctrees}
-# remove duplicate files
-rm -vrf doc/html/{_sources,_sphinx_design_static}
+#mkdir -p doc/.sphinx/_static/swagger-ui
+#cp %{SOURCE201} %{SOURCE202} %{SOURCE203} doc/.sphinx/_static/swagger-ui
+#sed -i 's|^path.*$|path = "%{gobuilddir}"|' doc/conf.py
+#sphinx-build -c doc/ -b dirhtml doc/ doc/html/
+#rm -vrf doc/html/{.buildinfo,.doctrees}
+## remove duplicate files
+#rm -vrf doc/html/{_sources,_sphinx_design_static}
 
 # build translations
-rm -f po/zh_Hans.po po/zh_Hant.po    # remove invalid locales
-make %{?_smp_mflags} build-mo
+#rm -f po/zh_Hans.po po/zh_Hant.po    # remove invalid locales
+#make %{?_smp_mflags} build-mo
 
 # generate man-pages
 mkdir %{gobuilddir}/man
