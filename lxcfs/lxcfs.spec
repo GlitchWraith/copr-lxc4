@@ -1,17 +1,20 @@
 Name:		  lxcfs
-Version:	  4.0.12
-Release:	  0.2%{?dist}
+Version:	  6.0.0
+Release:	  0.1%{?dist}
 Summary:	  FUSE based filesystem for LXC
 License:	  ASL 2.0
 URL:		  https://linuxcontainers.org/lxcfs
 Source0:	  https://linuxcontainers.org/downloads/%{name}/%{name}-%{version}.tar.gz
-BuildRequires:    automake
+Source1:	  %{name}-tmpfiles.conf
+BuildRequires:	  meson
 BuildRequires:	  gcc
+BuildRequires:	  python3-jinja2
 BuildRequires:	  gawk
 BuildRequires:	  make
-BuildRequires:	  fuse3-devel
+BuildRequires:	  fuse-devel
 BuildRequires:	  help2man
 BuildRequires:	  systemd
+BuildRequires:	  systemd-rpm-macros
 Requires(post):	  systemd
 Requires(preun):  systemd
 Requires(postun): systemd
@@ -35,16 +38,18 @@ how long the host is running.
 
 
 %build
-%configure --with-init-script=systemd
-make %{?_smp_mflags}
+%meson
+%meson_build
 
 
 %install
-%make_install SYSTEMD_UNIT_DIR=%{_unitdir}
+%meson_install
 mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
+install -D -m0644 -vp %{SOURCE1} %{buildroot}%{_tmpfilesdir}/%{name}.conf
 
 
 %post
+%tmpfiles_create %{_tmpfilesdir}/%{name}.conf
 %systemd_post %{name}.service
 
 
@@ -64,56 +69,85 @@ mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
 %{_bindir}/lxcfs
 %dir %{_libdir}/%{name}
 %{_libdir}/%{name}/lib%{name}.so
-%exclude %{_libdir}/%{name}/lib%{name}.la
 %dir %{_datadir}/%{name}
 %{_datadir}/%{name}/lxc.mount.hook
 %{_datadir}/%{name}/lxc.reboot.hook
 %{_mandir}/man1/%{name}.1*
 %{_unitdir}/%{name}.service
+%{_tmpfilesdir}/%{name}.conf
 %{_datadir}/lxc/config/common.conf.d/00-lxcfs.conf
 %dir %{_sharedstatedir}/%{name}
 
 
 %changelog
-* Sun Feb 13 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.12-0.2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_36_Mass_Rebuild
+* Thu Mar 28 2024 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 6.0.0-0.1
+- Update to 6.0.0.
 
-* Sat Feb 05 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.12-0.1
+* Thu Jan 25 2024 Fedora Release Engineering <releng@fedoraproject.org> - 5.0.4-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Sun Jan 21 2024 Fedora Release Engineering <releng@fedoraproject.org> - 5.0.4-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Wed Aug  2 2023 Thomas Moschny <thomas.moschny@gmx.de> - 5.0.4-1
+- Update to 5.0.4.
+
+* Thu Jul 20 2023 Fedora Release Engineering <releng@fedoraproject.org> - 5.0.3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
+
+* Fri Jan 20 2023 Thomas Moschny <thomas.moschny@gmx.de> - 5.0.3-1
+- Update to 5.0.3.
+
+* Thu Jan 19 2023 Fedora Release Engineering <releng@fedoraproject.org> - 5.0.2-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_38_Mass_Rebuild
+
+* Fri Sep  2 2022 Thomas Moschny <thomas.moschny@gmx.de> - 5.0.2-1
+- Update to 5.0.2.
+
+* Thu Jul 21 2022 Fedora Release Engineering <releng@fedoraproject.org> - 5.0.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_37_Mass_Rebuild
+
+* Wed May 25 2022 Thomas Moschny <thomas.moschny@gmx.de> - 5.0.0-1
+- Update to 5.0.0.
+
+* Sat Mar  5 2022 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.12-1
 - Update to 4.0.12.
 
-* Wed Oct 27 2021 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.11-0.2
-- Fix build failure on armhfp
+* Thu Jan 20 2022 Fedora Release Engineering <releng@fedoraproject.org> - 4.0.11-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_36_Mass_Rebuild
 
-* Tue Oct 26 2021 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.11-0.1
+* Sat Oct 23 2021 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.11-1
 - Update to 4.0.11.
-- Switch to fuse3.
 
-* Wed Jul 21 2021 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.9-0.1
+* Wed Jul 21 2021 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.9-1
 - Update to 4.0.9.
 
-* Sat May 01 2021 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.8-0.1
+* Sat May  1 2021 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.8-1
 - Update to 4.0.8.
 
-* Mon Jan 18 2021 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.7-0.1
+* Tue Jan 26 2021 Fedora Release Engineering <releng@fedoraproject.org> - 4.0.7-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_34_Mass_Rebuild
+
+* Wed Jan 13 2021 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.7-1
 - Update to 4.0.7.
 
-* Wed Oct 21 2020 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.6-0.1
+* Sun Oct 25 2020 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.6-1
 - Update to 4.0.6.
 
-* Thu Aug 06 2020 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.5-0.1
+* Wed Aug  5 2020 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.5-1
 - Update to 4.0.5.
 
-* Mon Jul 06 2020 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.4-0.2
-- Add patch to fix undefined symbol 'lxcfs_clone'
+* Tue Jul 28 2020 Fedora Release Engineering <releng@fedoraproject.org> - 4.0.4-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_33_Mass_Rebuild
 
-* Sun Jun 28 2020 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.4-0.1
+* Sat Jun 20 2020 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.4-1
 - Update to 4.0.4.
 
-* Sat Apr 18 2020 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.3-0.1
+* Fri Apr 24 2020 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.3-1
 - Update to 4.0.3.
 
-* Tue Apr 07 2020 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.1-0.1
-- Rebuild in COPR
+* Fri Apr 10 2020 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.2-1
+- Update to 4.0.2.
 
 * Sat Mar 21 2020 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.1-1
 - Update to 4.0.1.

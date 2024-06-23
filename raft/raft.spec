@@ -1,22 +1,19 @@
 Name:           raft
-Version:        0.11.3
-Release:        0.5%{?dist}
+Version:        0.22.1
+Release:        0.1%{?dist}
 Summary:        C implementation of the Raft consensus protocol
 
-License:        LGPLv3 with exceptions
-URL:            https://github.com/canonical/raft
+License:        LGPL-3.0-only WITH LGPL-3.0-linking-exception
+URL:            https://raft.readthedocs.io/
 Source0:        %{URL}/archive/v%{version}.tar.gz
-# https://github.com/canonical/raft/pull/259/
-Patch0:         0.11.3-test_compress-Respect-32bit-architectures.patch
-# https://github.com/canonical/raft/pull/261
-Patch1:         0.11.3-test-integration-uv-skip-init-oom-test-on-tmpfs.patch
-# https://github.com/canonical/raft/issues/263
-Patch2:         0.11.3-Revert-test-runner-Define-order-of-constructors.patch
 
 BuildRequires:  autoconf libtool
 BuildRequires:  gcc
 BuildRequires:  pkgconfig(liblz4)
 BuildRequires:  pkgconfig(libuv)
+# Breaking header change
+Conflicts:      dqlite < 1.16.0-0.2
+Conflicts:      cowsql < 1.15.4
 
 %description
 Fully asynchronous C implementation of the Raft consensus protocol. It consists
@@ -43,31 +40,25 @@ BuildArch:      noarch
 BuildRequires:  python-sphinx
 
 %description doc
-This package contains the C-Raft documentation in HTML format and some code
-examples.
+This package contains the C-Raft documentation in HTML format.
 
 %prep
-%setup -q -n %{name}-%{version}
-%patch0 -p1
-%patch1 -p1
-%patch2 -p1
-%if 0%{?fedora} && 0%{?fedora} < 35
-# Strict c11 mode results in build failure caused by included liburing headers
-# See https://github.com/axboe/liburing/issues/181
-sed -i '/std=c11/d' configure.ac
-%endif
+%autosetup -p1 -n %{name}-%{version}
 
 %build
 autoreconf -i
 %configure --disable-static --enable-benchmark
 %make_build
 sphinx-build -b html -d docs/_build/doctrees docs docs/_build/html
+rm -vf docs/_build/html/.buildinfo
 
 %install
 %make_install
 rm -f %{buildroot}%{_libdir}/libraft.la
 
 %check
+# parallel testing is broken: https://github.com/ganto/copr-lxc4/issues/35
+%global _smp_mflags -j1
 %make_build check
 
 %ldconfig_scriptlets
@@ -79,7 +70,7 @@ rm -f %{buildroot}%{_libdir}/libraft.la
 
 %files benchmark
 %license LICENSE
-%{_bindir}/os-disk-write
+%{_bindir}/raft-benchmark
 
 %files devel
 %{_libdir}/libraft.so
@@ -90,9 +81,42 @@ rm -f %{buildroot}%{_libdir}/libraft.la
 %files doc
 %license LICENSE
 %doc docs/_build/html/
-%doc example/
 
 %changelog
+* Sat Apr 13 2024 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 0.22.1-0.1
+- Update to 0.22.1
+
+* Fri Feb 16 2024 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 0.22.0-0.1
+- Update to 0.22.0
+
+* Fri Dec 22 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 0.18.3-0.2
+- Correctly indicate broken upgrade paths
+
+* Thu Dec 21 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 0.18.3-0.1
+- Switch upstream to https://github.com/cowsql/raft
+- Update to 0.18.3
+
+* Fri Jan 20 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 0.17.1-0.2
+- Define conflict with old dqlite
+
+* Fri Jan 20 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 0.17.1-0.1
+- Update to 0.17.1.
+
+* Sun Dec 04 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 0.16.0-0.2
+- Switch to SPDX license expression
+
+* Mon Nov 21 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 0.16.0-0.1
+- Update to 0.16.0.
+
+* Sat Aug 27 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 0.15.0-0.1
+- Update to 0.15.0.
+
+* Wed Jun 29 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 0.14.0-0.1
+- Update to 0.14.0.
+
+* Mon Apr 18 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 0.13.0-0.1
+- Update to 0.13.0.
+
 * Sun Feb 13 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 0.11.3-0.5
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_36_Mass_Rebuild
 

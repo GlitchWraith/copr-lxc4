@@ -1,98 +1,101 @@
 %bcond_without  check
 
-# enable debug for non-go code
-%global with_debug 1
-
-%if 0%{?with_debug}
-%global _find_debuginfo_dwz_opts %{nil}
-# https://bugzilla.redhat.com/show_bug.cgi?id=995136#c12
-%global _dwz_low_mem_die_limit 0
-%else
-%global debug_package %{nil}
-%endif
-
-# https://github.com/lxc/lxd
-%global goipath github.com/lxc/lxd
-Version:        4.21
+# https://github.com/canonical/lxd
+%global goipath github.com/canonical/lxd
+Version:        5.20
 
 %gometa
 
-%global godocs      AUTHORS
-%global golicenses  COPYING
+%global godocs AUTHORS CODE_OF_CONDUCT.md CONTRIBUTING.md README.md SECURITY.md
+%global golicenses COPYING
 
 Name:           lxd
-Release:        0.1%{?dist}
+Release:        0.2%{?dist}
 Summary:        Container hypervisor based on LXC
+License:        AGPL-3.0-or-later and Apache-2.0
+URL:            https://ubuntu.com/lxd
+Source0:        https://github.com/canonical/lxd/releases/download/%{name}-%{version}/%{name}-%{version}.tar.gz
 
-# Upstream license specification: Apache-2.0
-License:        ASL 2.0
-URL:            https://linuxcontainers.org/lxd
-Source0:        https://linuxcontainers.org/downloads/%{name}/%{name}-%{version}.tar.gz
-Source1:        %{name}.socket
-Source2:        %{name}.service
-Source3:        lxd-containers.service
-Source4:        lxd.dnsmasq
-Source5:        lxd.logrotate
-Source6:        shutdown
-Source7:        lxd.sysctl
-Source8:        lxd.profile
-Source9:        lxd-agent.service
-Source10:       lxd-agent-setup
+# Systemd units
+Source101:      %{name}.socket
+Source102:      %{name}.service
+Source103:      %{name}-containers.service
+
+# Ensure lxd group exists
+Source104:      %{name}-sysusers.conf
+
+# Ensure state directories (/var/lib/lxd, /var/cache/lxd, /var/log/lxd) exists
+Source105:      %{name}-tmpfiles.conf
+
+# Ensure system dnsmasq ignores lxd network bridge
+Source106:      %{name}-dnsmasq.conf
+
+# Raise number of inotify user instances
+Source107:      %{name}-sysctl.conf
+
+# Helper script for lxd shutdown
+Source108:      shutdown
+
+# SELinux file labels
+Source109:      %{name}.fc
+
+# Web scripts shipped with API documentation
+# Latest downloads from https://github.com/swagger-api/swagger-ui/tree/master/dist
+Source201:      swagger-ui-bundle.js
+Source202:      swagger-ui-standalone-preset.js
+Source203:      swagger-ui.css
+
 # Upstream bug fixes merged to master for next release
-Patch0:         lxd-4.21-NIC-Enable-IP-forwarding-on-routed-NIC.patch
-Patch1:         lxd-4.21-NIC-Dont-add-auto-gateway-when-IP-family-not-in-use.patch
-Patch2:         lxd-4.21-Disk-Fix-support-to-bind-mounting-unix-sockets.patch
-Patch3:         lxd-4.21-DB-Handle-null-ExpiryDate-for-custom-volume-snapshots.patch
-Patch4:         lxd-4.21-lxd-db-cluster-Fixes-v19-migration-for-sqlite-3.37.patch
+
+# https://github.com/canonical/lxd/issues/12730
+Patch0:         lxd-5.20-lxd-instance-qemu-Start-using-seabios-as-CSM-firmware.patch
+# https://github.com/canonical/lxd/issues/12808
+Patch1:         lxd-5.20-VM-Dont-leak-file-descriptor-when-probing-for-Direct-IO-support.patch
+
+# Allow offline builds
+Patch2:         lxd-5.19-doc-Remove-downloads-from-sphinx-build.patch
+Patch3:         lxd-5.20-doc-Enhance-related-links-definitions-for-offline-build.patch
+
+%global bashcompletiondir %(pkg-config --variable=completionsdir bash-completion 2>/dev/null || :)
+%global selinuxtype targeted
 
 BuildRequires:  gettext
 BuildRequires:  help2man
+BuildRequires:  pkgconfig(bash-completion)
 BuildRequires:  pkgconfig(dqlite)
 BuildRequires:  pkgconfig(libacl)
 BuildRequires:  pkgconfig(libcap)
 BuildRequires:  pkgconfig(libseccomp)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(lxc)
-BuildRequires:  pkgconfig(raft)
 BuildRequires:  pkgconfig(sqlite3)
+BuildRequires:  systemd-rpm-macros
+%{?sysusers_requires_compat}
 
-Requires: acl
-Requires: dnsmasq
-Requires: (nftables or (ebtables and iptables))
-Requires: lxd-client = %{version}-%{release}
-Requires: lxcfs
-Requires: rsync
-Requires: shadow-utils >= 4.1.5
-Requires: squashfs-tools
-Requires: tar
-Requires: xdelta
-Requires: xz
+Requires:       %{name}-client = %{version}-%{release}
+Requires:       (%{name}-selinux = %{version}-%{release} if selinux-policy-%{selinuxtype})
+Requires:       attr
+Requires:       dnsmasq
+Requires:       iptables, ebtables
+Requires:       (nftables if iptables-nft)
+Requires:       lxcfs
+Requires:       rsync
+Requires:       shadow-utils >= 4.1.5
+Requires:       squashfs-tools
+Requires:       tar
+Requires:       xdelta
+Requires:       xz
 %{?systemd_requires}
-Requires(pre): container-selinux >= 2:2.38
-Requires(pre): shadow-utils
 
 %if %{with check}
 #BuildRequires:  btrfs-progs
 BuildRequires:  dnsmasq
-BuildRequires:  ebtables
-BuildRequires:  iptables
+BuildRequires:  nftables
 %endif
 
-Obsoletes: lxd-libs < %{version}-%{release}
-
-Suggests: logrotate
-
-# Virtual machine support requires additional packages
-Suggests: edk2-ovmf
-Suggests: genisoimage
-%if 0%{?fedora} && 0%{?fedora} >= 34
-Suggests: qemu-char-spice
-Suggests: qemu-device-display-virtio-vga
-Suggests: qemu-device-display-virtio-gpu
-%endif
-Suggests: qemu-device-usb-redirect
-Suggests: qemu-img
-Suggests: qemu-system-x86-core
+Recommends:     lxd-agent = %{version}-%{release}
+Recommends:     lxd-ui
+Suggests:       lxd-doc
 
 %description
 Container hypervisor based on LXC
@@ -103,8 +106,24 @@ This package contains the LXD daemon.
 
 %godevelpkg
 
+%package selinux
+Summary:        Container hypervisor based on LXC - SELinux policy
+BuildArch:      noarch
+
+Requires:       container-selinux
+Requires(post): container-selinux
+BuildRequires:  selinux-policy-devel
+%{?selinux_requires}
+
+%description selinux
+Incus offers a REST API to remotely manage containers over the network,
+using an image based work-flow and with support for live migration.
+
+This package contains the SELinux policy.
+
 %package client
 Summary:        Container hypervisor based on LXC - Client
+License:        Apache-2.0
 
 Requires:       gettext
 
@@ -116,6 +135,11 @@ This package contains the command line client.
 
 %package tools
 Summary:        Container hypervisor based on LXC - Extra Tools
+License:        Apache-2.0
+
+Requires:       lxd%{?_isa} = %{version}-%{release}
+# fuidshift is also shipped with incus
+Conflicts:      incus-tools
 
 %description tools
 LXD offers a REST API to remotely manage containers over the network,
@@ -126,12 +150,13 @@ This package contains extra tools provided with LXD.
  - lxc-to-lxd - A tool to migrate LXC containers to LXD
  - lxd-benchmark - A LXD benchmark utility
 
-%package p2c
+%package migrate
 Summary:        A physical to container migration tool
-#Requires:       netcat
+License:        Apache-2.0
+
 Requires:       rsync
 
-%description p2c
+%description migrate
 Physical to container migration tool
 
 This tool lets you turn any Linux filesystem (including your current one)
@@ -143,6 +168,18 @@ API to create a new container from it.
 
 %package agent
 Summary:        LXD guest agent
+License:        Apache-2.0
+
+Requires:       lxd%{?_isa} = %{version}-%{release}
+# Virtual machine support requires additional packages
+Recommends:     edk2-ovmf
+Recommends:     genisoimage
+Recommends:     qemu-char-spice
+Recommends:     qemu-device-display-virtio-vga
+Recommends:     qemu-device-display-virtio-gpu
+Recommends:     qemu-device-usb-redirect
+Recommends:     qemu-img
+Recommends:     qemu-kvm-core
 
 %description agent
 This packages provides an agent to run inside LXD virtual machine guests.
@@ -152,7 +189,41 @@ injection capability when creating a virtual machine.
 
 %package doc
 Summary:        Container hypervisor based on LXC - Documentation
+# This project is Apache-2.0. Other files bundled with the documentation have the
+# following licenses:
+# - _static/basic.css: BSD-2-Clause
+# - _static/clipboard.min.js: MIT
+# - _static/copy*: MIT
+# - _static/doctools.js: BSD-2-Clause
+# - _static/*/furo*: MIT
+# - _static/jquery*.js: MIT
+# - _static/language_data.js: BSD-2-Clause
+# - _static/pygments.css: BSD-2-Clause
+# - _static/searchtools.js: BSD-2-Clause
+# - _static/swagger-ui/*: Apache-2.0
+# - _static/underscore*.js: MIT
+License:        Apache-2.0 AND BSD-2-Clause AND MIT
 BuildArch:      noarch
+
+BuildRequires:  python3-furo
+BuildRequires:  python3-linkify-it-py
+BuildRequires:  python3-lxd-sphinx-extensions
+BuildRequires:  python3-myst-parser
+BuildRequires:  python3-sphinx
+BuildRequires:  python3-sphinx-copybutton
+BuildRequires:  python3-sphinx-design
+BuildRequires:  python3-sphinx-notfound-page
+BuildRequires:  python3-sphinx-remove-toctrees
+BuildRequires:  python3-sphinx-reredirects
+BuildRequires:  python3-sphinx-tabs
+BuildRequires:  python3-sphinxcontrib-applehelp
+BuildRequires:  python3-sphinxcontrib-devhelp
+BuildRequires:  python3-sphinxcontrib-htmlhelp
+BuildRequires:  python3-sphinxcontrib-jquery
+BuildRequires:  python3-sphinxcontrib-jsmath
+BuildRequires:  python3-sphinxcontrib-qthelp
+BuildRequires:  python3-sphinxcontrib-serializinghtml
+BuildRequires:  python3-sphinxext-opengraph
 
 %description doc
 LXD offers a REST API to remotely manage containers over the network,
@@ -162,11 +233,7 @@ This package contains user documentation.
 
 %prep
 %goprep -k
-%patch0 -p1
-%patch1 -p1
-%patch2 -p1
-%patch3 -p1
-%patch4 -p1
+%autopatch -v -p1
 
 %build
 export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
@@ -174,135 +241,172 @@ for cmd in lxd lxc fuidshift lxd-benchmark lxc-to-lxd; do
     BUILDTAGS="libsqlite3" %gobuild -o %{gobuilddir}/bin/$cmd %{goipath}/$cmd
 done
 
+# upstream %gobuildflags contain '-linkmode=external' which conflicts with CGO_ENABLED=0
+%global gobuildflags -tags="${BUILDTAGS:-}" -ldflags "${LDFLAGS:-} -B 0x$(head -c20 /dev/urandom|od -An -tx1|tr -d ' \\n')" -a -v -x
+
 export CGO_ENABLED=0
-BUILDTAGS="netgo" %gobuild -o %{gobuilddir}/bin/lxd-p2c %{goipath}/lxd-p2c
+BUILDTAGS="netgo" %gobuild -o %{gobuilddir}/bin/lxd-migrate %{goipath}/lxd-migrate
 BUILDTAGS="agent netgo" %gobuild -o %{gobuilddir}/bin/lxd-agent %{goipath}/lxd-agent
 unset CGO_ENABLED
+
+# build documentation
+mkdir -p doc/.sphinx/_static/swagger-ui
+cp %{SOURCE201} %{SOURCE202} %{SOURCE203} doc/.sphinx/_static/swagger-ui
+sed -i 's|lxc.bin|_build/bin/lxc|' doc/myconf.py doc/custom_conf.py
+sphinx-build -c doc/ -b dirhtml doc/ doc/html/
+rm -vrf doc/html/{.buildinfo,.doctrees}
+# remove duplicate files
+rm -vrf doc/html/{_sources,_sphinx_design_static}
 
 # build translations
 rm -f po/ber.po po/zh_Hans.po po/zh_Hant.po    # remove invalid locales
 make %{?_smp_mflags} build-mo
 
 # generate man-pages
-%{gobuilddir}/bin/lxd manpage .
-%{gobuilddir}/bin/lxc manpage .
-help2man %{gobuilddir}/bin/fuidshift -n "uid/gid shifter" --no-info --no-discard-stderr > fuidshift.1
-help2man %{gobuilddir}/bin/lxd-benchmark -n "The container lightervisor - benchmark" --no-info --no-discard-stderr > lxd-benchmark.1
-help2man %{gobuilddir}/bin/lxd-p2c -n "Physical to container migration tool" --no-info --no-discard-stderr > lxd-p2c.1
-help2man %{gobuilddir}/bin/lxc-to-lxd -n "Convert LXC containers to LXD" --no-info --no-discard-stderr > lxc-to-lxd.1
-help2man %{gobuilddir}/bin/lxd-agent -n "LXD virtual machine guest agent" --no-info --no-discard-stderr > lxd-agent.1
+mkdir %{gobuilddir}/man
+%{gobuilddir}/bin/lxd manpage %{gobuilddir}/man/
+%{gobuilddir}/bin/lxc manpage %{gobuilddir}/man/
+help2man %{gobuilddir}/bin/fuidshift -n "uid/gid shifter" --no-info --no-discard-stderr > %{gobuilddir}/man/fuidshift.1
+help2man %{gobuilddir}/bin/lxd-benchmark -n "The container lightervisor - benchmark" --no-info --no-discard-stderr > %{gobuilddir}/man/lxd-benchmark.1
+help2man %{gobuilddir}/bin/lxd-migrate -n "Physical to container migration tool" --no-info --no-discard-stderr > %{gobuilddir}/man/lxd-migrate.1
+help2man %{gobuilddir}/bin/lxc-to-lxd -n "Convert LXC containers to LXD" --no-info --no-discard-stderr > %{gobuilddir}/man/lxc-to-lxd.1
+help2man %{gobuilddir}/bin/lxd-agent -n "LXD virtual machine guest agent" --no-info --no-discard-stderr > %{gobuilddir}/man/lxd-agent.1
+
+# SELinux policy
+mkdir selinux
+cp -p %{SOURCE109} selinux/
+pushd selinux
+# generate the type enforcement file as it has no other content
+echo 'policy_module(%{name},1.0)' >%{name}.te
+%{__make} NAME=%{selinuxtype} -f %{_datadir}/selinux/devel/Makefile %{name}.pp
+bzip2 -9 %{name}.pp
+popd
 
 %install
 %gopkginstall
 
 # install binaries
-install -m 0755 -vd                     %{buildroot}%{_bindir}
-install -m 0755 -vp %{gobuilddir}/bin/* %{buildroot}%{_bindir}/
-
-# extra configs
-install -Dpm 0644 %{SOURCE4} %{buildroot}%{_sysconfdir}/dnsmasq.d/lxd
-install -Dpm 0644 %{SOURCE5} %{buildroot}%{_sysconfdir}/logrotate.d/lxd
-install -Dpm 0644 %{SOURCE7} %{buildroot}%{_sysconfdir}/sysctl.d/10-lxd-inotify.conf
-install -Dpm 0644 %{SOURCE8} %{buildroot}%{_sysconfdir}/profile.d/lxd.sh
-
-# install bash completion
-install -Dpm 0644 scripts/bash/lxd-client %{buildroot}%{_datadir}/bash-completion/completions/lxd-client
+install -d %{buildroot}%{_bindir}
+install -m0755 -vp %{gobuilddir}/bin/* %{buildroot}%{_bindir}/
 
 # install systemd units
-install -d -m 0755 %{buildroot}%{_unitdir}
-install -p -m 0644 %{SOURCE1} %{buildroot}%{_unitdir}/
-install -p -m 0644 %{SOURCE2} %{buildroot}%{_unitdir}/
-install -p -m 0644 %{SOURCE3} %{buildroot}%{_unitdir}/
-install -p -m 0644 %{SOURCE9} %{buildroot}%{_unitdir}/
-install -d -m 0755 %{buildroot}/lib/systemd
-install -p -m 0755 %{SOURCE10} %{buildroot}/lib/systemd/
+install -d %{buildroot}%{_unitdir}
+install -m0644 -vp %{SOURCE101} %{buildroot}%{_unitdir}/
+install -m0644 -vp %{SOURCE102} %{buildroot}%{_unitdir}/
+install -m0644 -vp %{SOURCE103} %{buildroot}%{_unitdir}/
+install -D -m0644 -vp %{SOURCE104} %{buildroot}%{_sysusersdir}/%{name}.conf
+install -D -m0644 -vp %{SOURCE105} %{buildroot}%{_tmpfilesdir}/%{name}.conf
+
+# extra configs
+install -D -m0644 -vp %{SOURCE106} %{buildroot}%{_sysconfdir}/dnsmasq.d/%{name}.conf
+install -D -m0644 -vp %{SOURCE107} %{buildroot}%{_sysconfdir}/sysctl.d/10-lxd-inotify.conf
+
+# selinux policy
+install -D -m0644 -vp selinux/%{name}.pp.bz2 %{buildroot}%{_datadir}/selinux/packages/%{selinuxtype}/%{name}.pp.bz2
 
 # install shutdown wrapper
-install -d -m 0755 %{buildroot}%{_libexecdir}/%{name}
-install -p -m 0755 %{SOURCE6} %{buildroot}%{_libexecdir}/%{name}
+install -D -m0755 -vp %{SOURCE108} %{buildroot}%{_libexecdir}/%{name}/shutdown
 
 # install manpages
 install -d %{buildroot}%{_mandir}/man1
-cp -p lxd.1 %{buildroot}%{_mandir}/man1/
-cp -p lxc*.1 %{buildroot}%{_mandir}/man1/
-cp -p fuidshift.1 %{buildroot}%{_mandir}/man1/
-cp -p lxd-benchmark.1 %{buildroot}%{_mandir}/man1/
-cp -p lxd-p2c.1 %{buildroot}%{_mandir}/man1/
-cp -p lxc-to-lxd.1 %{buildroot}%{_mandir}/man1/
-cp -p lxd-agent.1 %{buildroot}%{_mandir}/man1/
+cp -p %{gobuilddir}/man/*.1 %{buildroot}%{_mandir}/man1/
+
+# install bash completion
+install -D -m0644 -vp scripts/bash/lxd-client %{buildroot}%{bashcompletiondir}/lxd-client
 
 # cache and log directories
-install -d -m 0711 %{buildroot}%{_localstatedir}/lib/%{name}
-install -d -m 0755 %{buildroot}%{_localstatedir}/log/%{name}
+install -d -m0700 %{buildroot}%{_localstatedir}/cache/%{name}
+install -d -m0700 %{buildroot}%{_localstatedir}/log/%{name}
+install -d -m0711 %{buildroot}%{_localstatedir}/lib/%{name}
 
 # language files
-install -dm 0755 %{buildroot}%{_datadir}/locale
 for mofile in po/*.mo ; do
-install -Dpm 0644 ${mofile} %{buildroot}%{_datadir}/locale/$(basename ${mofile%%.mo})/LC_MESSAGES/%{name}.mo
+    install -D -m0644 -vp ${mofile} %{buildroot}%{_datadir}/locale/$(basename ${mofile%%.mo})/LC_MESSAGES/%{name}.mo
 done
 %find_lang lxd
 
 %if %{with check}
 %check
 export GOPATH=%{buildroot}/%{gopath}:%{gopath}
+export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
 
 # Add libsqlite3 tag to go test
 %define gotestflags -buildmode pie -compiler gc -v -tags libsqlite3
 
-# Tests must ignore potential LXD_SOCKET from environment
-unset LXD_SOCKET
+# https://github.com/ganto/copr-lxc4/issues/46
+rm -f shared/util_linux_test.go
 
-export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
-
-%gocheck -v \
+%gocheck -v -t %{goipath}/test \
     -d %{goipath}/lxc-to-lxd  # lxc-to-lxd test fails, see ganto/copr-lxc3#10
-
 %endif
 
 %pre
-# check for existence of lxd group, create it if not found
-getent group %{name} > /dev/null || groupadd -r %{name}
+%sysusers_create_package %{name} %{SOURCE104}
+%tmpfiles_create_package %{name} %{SOURCE105}
+
+%pre selinux
+%selinux_relabel_pre -s %{selinuxtype}
 
 %post
+%sysctl_apply 10-lxd-inotify.conf
 %systemd_post %{name}.socket
 %systemd_post %{name}.service
 %systemd_post %{name}-containers.service
 
-%post agent
-%systemd_post %{name}-agent.service
+%post selinux
+%selinux_modules_install -s %{selinuxtype} %{_datadir}/selinux/packages/%{selinuxtype}/%{name}.pp.bz2
+%selinux_relabel_post -s %{selinuxtype}
 
 %preun
 %systemd_preun %{name}.socket
 %systemd_preun %{name}.service
 %systemd_preun %{name}-containers.service
 
-%preun agent
-%systemd_preun %{name}-agent.service
+%postun
+%systemd_postun_with_restart %{name}.socket
+%systemd_postun_with_restart %{name}.service
+
+%postun selinux
+if [ $1 -eq 0 ]; then
+    %selinux_modules_uninstall -s %{selinuxtype} %{name}
+    %selinux_relabel_post -s %{selinuxtype}
+fi
+
+%posttrans selinux
+%selinux_relabel_post -s %{selinuxtype}
 
 %files
 %license %{golicenses}
-%config(noreplace) %{_sysconfdir}/dnsmasq.d/lxd
-%config(noreplace) %{_sysconfdir}/logrotate.d/lxd
+%config(noreplace) %{_sysconfdir}/dnsmasq.d/%{name}.conf
 %config(noreplace) %{_sysconfdir}/sysctl.d/10-lxd-inotify.conf
-%config(noreplace) %{_sysconfdir}/profile.d/lxd.sh
 %{_bindir}/%{name}
 %{_unitdir}/%{name}.socket
 %{_unitdir}/%{name}.service
 %{_unitdir}/%{name}-containers.service
 %dir %{_libexecdir}/%{name}
 %{_libexecdir}/%{name}/*
-%{_mandir}/man1/%{name}.1.*
-%dir %{_localstatedir}/log/%{name}
-%defattr(-, root, root, 0711)
-%dir %{_localstatedir}/lib/%{name}
-
+%{_sysusersdir}/%{name}.conf
+%{_tmpfilesdir}/%{name}.conf
+%{_mandir}/man1/%{name}.*1.*
+%exclude %{_mandir}/man1/lxd-agent.1.*
+%exclude %{_mandir}/man1/lxd-benchmark.1.*
+%exclude %{_mandir}/man1/lxd-migrate.1.*
+%attr(700,root,root) %dir %{_localstatedir}/cache/%{name}
+%attr(700,root,root) %dir %{_localstatedir}/log/%{name}
+%attr(711,root,root) %dir %{_localstatedir}/lib/%{name}
 %gopkgfiles
+
+%files selinux
+%{_datadir}/selinux/packages/%{selinuxtype}/%{name}.pp.*
+%ghost %verify(not md5 size mtime) %{_sharedstatedir}/selinux/%{selinuxtype}/active/modules/200/%{name}
 
 %files client -f lxd.lang
 %license %{golicenses}
 %{_bindir}/lxc
-%{_datadir}/bash-completion/completions/lxd-client
+%dir %{bashcompletiondir}
+%{bashcompletiondir}/lxd-client
 %{_mandir}/man1/lxc.*1.*
+%exclude %{_mandir}/man1/lxc-to-lxd.1.*
 
 %files tools
 %license %{golicenses}
@@ -313,23 +417,110 @@ getent group %{name} > /dev/null || groupadd -r %{name}
 %{_mandir}/man1/lxd-benchmark.1.*
 %{_mandir}/man1/lxc-to-lxd.1.*
 
-%files p2c
+%files migrate
 %license %{golicenses}
-%{_bindir}/lxd-p2c
-%{_mandir}/man1/lxd-p2c.1.*
+%{_bindir}/lxd-migrate
+%{_mandir}/man1/lxd-migrate.1.*
 
 %files agent
 %license %{golicenses}
 %{_bindir}/lxd-agent
-%{_unitdir}/%{name}-agent.service
-/lib/systemd/%{name}-agent-setup
 %{_mandir}/man1/lxd-agent.1.*
 
 %files doc
 %license %{golicenses}
-%doc doc/*
+%doc doc/html
 
 %changelog
+* Sun Apr 28 2024 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.20-0.2
+- Disable xattr test due to COPR failure
+
+* Sat Apr 27 2024 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.20-0.1
+- Update to 5.20.
+- Add lxd-selinux sub package
+- Update swagger-ui to v5.17.2
+
+* Fri Dec 29 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.19-0.1
+- Update to 5.19
+- Update swagger-ui to v5.10.5
+- Use systemd sysusers/tmpfiles
+- Update dependencies to use 'Recommends'
+- Remove unneeded lxd-agent script and systemd unit
+
+* Sun Nov 19 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.18-0.2
+- Add VM dependencies and UI as suggests
+
+* Fri Nov 03 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.18-0.1
+- Update to 5.18.
+- Update swagger-ui to v5.9.1
+
+* Wed Oct 04 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.17-0.1
+- Update to 5.17.
+- Update swagger-ui to v5.9.0
+
+* Sun Aug 27 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.16-0.1
+- Update to 5.16.
+- Update swagger-ui to v5.4.2
+* Mon Aug 07 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.15-0.1
+- Update to 5.15.
+- Build documentation with sphinx instead of only distributing the markdown files
+
+* Tue Jul 04 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.14-0.1
+- Update to 5.14.
+
+* Thu Jun 01 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.13-0.1
+- Update to 5.13.
+
+* Sat Apr 22 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.12-0.1
+- Update to lxd-5.12.
+
+* Wed Mar 15 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.11-0.1
+- Update to lxd-5.11.
+
+* Sat Feb 11 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.10-0.2
+- Update to 5.10.
+
+* Mon Jan 23 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.9-0.2
+- Rebuild because of raft so-library version update
+
+* Sat Jan 14 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.9-0.1
+- Update to 5.9.
+
+* Fri Dec 23 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.8-0.1
+- Update to 5.8.
+
+* Sun Dec 04 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.7-0.1
+- Update to 5.7
+
+* Sat Oct 22 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.6-0.1
+- Update to 5.6.
+
+* Sun Oct 02 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.5-0.1
+- Update to 5.5.
+
+* Thu Aug 11 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.4-0.1
+- Update to 5.4.
+
+* Wed Aug 10 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.3-0.2
+- Fix lxc-5.0 compatibility
+
+* Fri Jul 01 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 5.3-0.1
+- Update to 5.3.
+
+* Mon Apr 18 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.24-0.2
+- Rebuild because of raft so-library version update
+
+* Thu Apr 14 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.24-0.1
+- Update to 4.24.
+
+* Sun Mar 27 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.23-0.1
+- Update to 4.23.
+- Replace lxd-p2c with lxd-migrate following upstream change.
+
+* Sun Mar 13 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.22-0.1
+- Update to 4.22.
+- Add missing dependency to setfattr
+
 * Sat Jan 15 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.21-0.1
 - Update to 4.21
 

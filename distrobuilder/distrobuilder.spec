@@ -1,19 +1,20 @@
 # https://github.com/lxc/distrobuilder
 %global goipath github.com/lxc/distrobuilder
-Version:        2.0
+Version:        3.0
 %gometa
 
 %global godocs      AUTHORS CONTRIBUTING.md
 %global golicenses  COPYING
 
 Name:           distrobuilder
-Release:        0.2%{?dist}
-Summary:        System container image builder for LXC and LXD
+Release:        0.1%{?dist}
+Summary:        System container image builder for LXC and Incus
 
 License:        ASL 2.0
 URL:            %{gourl}
 Source0:        https://linuxcontainers.org/downloads/distrobuilder/%{name}-%{version}.tar.gz
-Patch0:         %{name}-1.3-Disable-online-tests.patch
+Patch0:         %{name}-%{version}-Disable-online-tests.patch
+Patch1:         %{name}-%{version}-doc-Enhance-link-definitions-for-offline-build.patch
 
 BuildRequires:  gnupg
 BuildRequires:  help2man
@@ -31,11 +32,36 @@ Suggests:       genisoimage
 %description
 %{summary}.
 
+%package doc
+Summary:        System container image builder for LXC and Incus - Documentation
+BuildArch:      noarch
+
+BuildRequires:  python3-furo
+BuildRequires:  python3-linkify-it-py
+BuildRequires:  python3-lxd-sphinx-extensions
+BuildRequires:  python3-myst-parser
+BuildRequires:  python3-sphinx
+BuildRequires:  python3-sphinx-design
+BuildRequires:  python3-sphinx-reredirects
+BuildRequires:  python3-sphinx-tabs
+BuildRequires:  python3-sphinxcontrib-applehelp
+BuildRequires:  python3-sphinxcontrib-devhelp
+BuildRequires:  python3-sphinxcontrib-htmlhelp
+BuildRequires:  python3-sphinxcontrib-jquery
+BuildRequires:  python3-sphinxcontrib-jsmath
+BuildRequires:  python3-sphinxcontrib-qthelp
+BuildRequires:  python3-sphinxcontrib-serializinghtml
+BuildRequires:  python3-sphinxext-opengraph
+
+%description doc
+%{summary}.
+
 %gopkg
 
 %prep
 %goprep -k
 %patch0 -p1
+%patch1 -p1
 
 %generate_buildrequires
 
@@ -44,6 +70,8 @@ Suggests:       genisoimage
 %gobuild -o %{gobuilddir}/bin/%{name} %{goipath}/%{name}
 
 help2man %{gobuilddir}/bin/%{name} -n "System container image builder" --no-info --no-discard-stderr > %{name}.1
+sphinx-build -c .sphinx -b dirhtml doc/ doc/html/
+rm -rf doc/html/{.buildinfo,.doctrees,_sources}
 
 %install
 %gopkginstall
@@ -58,15 +86,24 @@ install -m 0644 -vp %{name}.1           %{buildroot}%{_mandir}/man1/
 
 %files
 %license %{golicenses}
-%doc
-%doc doc/*.md
 %doc doc/examples
 %{_bindir}/*
 %{_mandir}/man1/%{name}.1.*
 
+%files doc
+%license %{golicenses}
+%doc doc/html
+
 %gopkgfiles
 
 %changelog
+* Sun Nov 19 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 3.0-0.1
+- Update to 3.0.
+- Create subpackage for documentation
+
+* Wed Jun 29 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 2.1-0.1
+- Update to 2.1.
+
 * Sun Feb 27 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 2.0-0.2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_36_Mass_Rebuild
 

@@ -1,16 +1,18 @@
 Name:           dqlite
-Version:        1.9.1
-Release:        0.2%{?dist}
+Version:        1.16.4
+Release:        0.1%{?dist}
 Summary:        Embeddable, replicated and fault tolerant SQL engine
 
-License:        LGPLv3 with exception
+License:        LGPL-3.0-only WITH LGPL-3.0-linking-exception
 URL:            https://github.com/canonical/dqlite
 Source0:        %{URL}/archive/v%{version}.tar.gz
+# https://github.com/canonical/dqlite/issues/574
+Patch0:         dqlite-1.16.4-raft-uv-Drop-AI_V4MAPPED-AI_ADDRCONFIG-from-getaddrinfo.patch
 
 BuildRequires:  autoconf libtool
 BuildRequires:  gcc
+BuildRequires:  pkgconfig(liblz4)
 BuildRequires:  pkgconfig(libuv)
-BuildRequires:  pkgconfig(raft)
 BuildRequires:  pkgconfig(sqlite3)
 
 %description
@@ -25,11 +27,11 @@ Requires:       %{name}%{?_isa} = %{version}-%{release}
 Development headers and library for dqlite.
 
 %prep
-%setup -q -n %{name}-%{version}
+%autosetup -n %{name}-%{version} -p1
 
 %build
 autoreconf -i
-%configure --disable-static
+%configure --disable-static --enable-build-raft=yes
 %make_build
 
 %install
@@ -52,6 +54,40 @@ rm -f %{buildroot}%{_libdir}/libdqlite.la
 %{_includedir}/%{name}.h
 
 %changelog
+* Mon Mar 25 2024 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 1.16.4-0.1
+- Update to 1.16.4.
+
+* Fri Dec 22 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 1.16.0-0.2
+- Rebuild due to raft ABI change
+
+* Fri Sep 29 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 1.16.0-0.1
+- Update to 1.16.0.
+
+* Sun Jun 18 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 1.15.1-0.1
+- Update to 1.15.1.
+
+* Sat Jan 21 2023 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 1.14.0-0.1
+- Update to 1.14.0.
+
+* Sun Dec 18 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 1.13.0-0.1
+- Update to 1.13.0.
+
+* Sun Dec 04 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 1.12.0-0.1
+- Update to 1.12.0.
+
+* Sat Oct 01 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 1.11.1-0.2
+- Fix build dependencies
+- Add patch to fix test issue
+
+* Wed Jul 13 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 1.11.1-0.1
+- Update to 1.11.1.
+
+* Sat Jul 09 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 1.11.0-0.1
+- dqlite: Update to 1.11.0.
+
+* Mon Apr 18 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 1.10.0-0.1
+- Update to 1.10.0.
+
 * Mon Feb 14 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 1.9.1-0.2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_36_Mass_Rebuild
 

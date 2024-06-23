@@ -1,54 +1,58 @@
 %if 0%{?fedora}
-%global with_seccomp 1
-%global with_static_init 1
-%global with_uring 1
+%bcond_without seccomp
+%bcond_without static_init
 %endif
 
 %if 0%{?rhel} >= 7
 %ifarch %{ix86} x86_64 %{arm} aarch64
-%global with_seccomp 1
+%bcond_without seccomp
 %endif
 %endif
 
+%{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
+
 Name:           lxc
-Version:        4.0.12
-Release:        0.2%{?dist}
+Version:        6.0.0
+Release:        0.1%{?dist}
 Summary:        Linux Resource Containers
 License:        LGPLv2+ and GPLv2
 URL:            https://linuxcontainers.org/lxc
-Source0:        https://linuxcontainers.org/downloads/%{name}-%{version}.tar.gz
+Source0:        https://linuxcontainers.org/downloads/%{name}/%{name}-%{version}.tar.gz
 Source1:        lxc-net
-Patch0:         lxc-2.0.7-fix-init.patch
-Patch1:         lxc-4.0.1-fix-lxc-net.patch
-BuildRequires:  make
+Patch0:         lxc-5.0.0-fix-lxc-net.patch
+
+BuildRequires:  cmake
 BuildRequires:  docbook2X
 BuildRequires:  doxygen
+BuildRequires:  gcc-c++
 BuildRequires:  kernel-headers
-BuildRequires:  libselinux-devel
-%if 0%{?with_seccomp}
+BuildRequires:  libcap-devel
+%if %{?with_seccomp}
 BuildRequires:  pkgconfig(libseccomp)
 %endif
-BuildRequires:  libcap-devel
-BuildRequires:  pam-devel
+BuildRequires:  libselinux-devel
+BuildRequires:  meson >= 0.61
 BuildRequires:  openssl-devel
-%if 0%{?with_uring}
-BuildRequires:  liburing-devel
-%endif
-BuildRequires:  libtool
-BuildRequires:  systemd
-BuildRequires:  pkgconfig(bash-completion)
-%if 0%{?with_static_init}
+BuildRequires:  pam-devel
+BuildRequires:  pkg-config
+BuildRequires:  systemd-devel
+BuildRequires:  pkgconfig(dbus-1)
+%if %{?with_static_init}
 BuildRequires:  libcap-static
 BuildRequires:  glibc-static
 %endif
-# we are patching configure.ac
-BuildRequires:  autoconf automake libtool
 # lxc-extra subpackage not needed anymore, lxc-ls has been rewriten in
 # C and does not depend on the Python3 binding anymore
 Provides:       lxc-extra = %{version}-%{release}
 Obsoletes:      lxc-extra < 1.1.5-3
 
-%{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
+# https://bugzilla.redhat.com/show_bug.cgi?id=2274215
+Requires: lxc-libs%{?_isa} = %{version}-%{release}
+Requires: lxcfs
+Requires: rsync
+# Needed to create openSUSE containers using template.
+# Recommends: build
+# Recommends: criu >= 2.0
 
 %description
 Linux Resource Containers provide process and resource isolation without the
@@ -64,10 +68,6 @@ Requires(preun):   systemd
 Requires(postun):  systemd
 Requires(post):    /sbin/ldconfig
 Requires(postun):  /sbin/ldconfig
-%if 0%{?fedora}
-Recommends:        dnsmasq
-Recommends:        iptables
-%endif
 
 
 %description    libs
@@ -79,6 +79,7 @@ The %{name}-libs package contains libraries for running %{name} applications.
 
 %package        templates
 Summary:        Templates for %{name}
+BuildArch:      noarch
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 # Note: Not all requirements for the template scripts (busybox, dpkg,
 # debootstrap, rsync, openssh-server, dhclient, apt, pacman, zypper,
@@ -124,35 +125,40 @@ This package contains documentation for %{name}.
 
 
 %prep
-%autosetup -p1 -n %{name}-%{version}
+%autosetup -p1
 
 
 %build
-autoreconf -vif
-%configure --with-distro=fedora \
-           --enable-doc \
-           --enable-api-docs \
-           --disable-silent-rules \
-           --docdir=%{_pkgdocdir} \
-           --disable-rpath \
-           --disable-static \
-           --disable-apparmor \
-           --enable-selinux \
-           --enable-capabilities \
-           --enable-pam \
-           --enable-openssl \
+%meson \
+	-D apparmor=false \
+	-D coverity-build=false \
+	-D examples=true \
+	-D man=true \
+	-D tools=true \
+	-D commands=true \
+	-D capabilities=true \
+	-D openssl=true \
 %if 0%{?with_seccomp}
-           --enable-seccomp \
-%endif # with_seccomp
-           --with-init-script=systemd \
-           --disable-werror \
-# intentionally blank line
+	-D seccomp=true \
+%endif
+	-D memfd-rexec=true \
+	-D thread-safety=true \
+	-D dbus=true \
+	-D tests=false \
+	-D init-script=systemd \
+	-D systemd-unitdir=%{_unitdir} \
+	-D distrosysconfdir=sysconfig \
+	-D pam-cgroup=true \
+	-D runtime-path=%{_rundir} \
+	%{nil}
+%meson_build
 
-%{make_build}
+# See https://github.com/lxc/lxc/issues/4156
+cd doc/api/ && doxygen
 
 
 %install
-%{make_install}
+%meson_install
 mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
 
 # docs
@@ -163,31 +169,31 @@ cp -a doc/api/html/* %{buildroot}%{_pkgdocdir}/api/
 # cache dir
 mkdir -p %{buildroot}%{_localstatedir}/cache/%{name}
 
-# remove libtool .la file
-rm -rf %{buildroot}%{_libdir}/liblxc.la
+# remove libtool .a file
+rm -r %{buildroot}%{_libdir}/liblxc.a
 
 # lxc-net config file
 cp -a %{SOURCE1} %{buildroot}%{_sysconfdir}/sysconfig/%{name}-net
 
 %check
-make check
+%meson_test
 
 
 %post libs
-%{?ldconfig}
 %systemd_post %{name}-net.service
 %systemd_post %{name}.service
-
+%systemd_post lxc-monitord.service
 
 %preun libs
 %systemd_preun %{name}-net.service
 %systemd_preun %{name}.service
+%systemd_preun lxc-monitord.service
 
 
 %postun libs
-%{?ldconfig}
 %systemd_postun %{name}-net.service
 %systemd_postun %{name}.service
+%systemd_postun lxc-monitord.service
 
 
 %files
@@ -203,7 +209,8 @@ make check
 %{_datadir}/%{name}/%{name}.functions
 %dir %{_datadir}/bash-completion
 %dir %{_datadir}/bash-completion/completions
-%{_datadir}/bash-completion/completions/%{name}*
+%{_datadir}/bash-completion/completions/_%{name}
+%{_datadir}/bash-completion/completions/%{name}-*
 
 
 %files libs
@@ -218,7 +225,7 @@ make check
 %{_libexecdir}/%{name}
 # fixme: should be in libexecdir?
 %{_sbindir}/init.%{name}
-%if 0%{?with_static_init}
+%if %{?with_static_init}
 %{_sbindir}/init.%{name}.static
 %endif
 %{_bindir}/%{name}-autostart
@@ -240,12 +247,14 @@ make check
 %dir %{_pkgdocdir}
 %{_pkgdocdir}/AUTHORS
 %{_pkgdocdir}/README.md
+%{_pkgdocdir}/examples
 %license COPYING
 %{_unitdir}/%{name}.service
 %{_unitdir}/%{name}@.service
 %{_unitdir}/%{name}-net.service
+%{_unitdir}/%{name}-monitord.service
 %dir %{_localstatedir}/cache/%{name}
-/%{_lib}/security/pam_cgfs.so
+%{_libdir}/security/pam_cgfs.so
 
 
 %files templates
@@ -268,47 +277,68 @@ make check
 
 
 %changelog
-* Sun Feb 13 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.12-0.2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_36_Mass_Rebuild
+* Sat Apr 13 2024 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 6.0.0-0.1
+- Update to 6.0.0.
 
-* Sun Feb 13 2022 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.12-0.1
+* Tue Apr 09 2024 Sérgio Basto <sergio@serjux.com> - 5.0.3-2
+- (#2274215) force lxc requires lxc-libs
+- Add more Requires
+
+* Fri Jan 26 2024 Sérgio Basto <sergio@serjux.com> - 5.0.3-1
+- Update lxc to 5.0.3 (inspired in https://build.opensuse.org/package/show/Virtualization:containers/lxc)
+
+* Thu Jan 25 2024 Fedora Release Engineering <releng@fedoraproject.org> - 4.0.12-6
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Sun Jan 21 2024 Fedora Release Engineering <releng@fedoraproject.org> - 4.0.12-5
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Thu Jul 20 2023 Fedora Release Engineering <releng@fedoraproject.org> - 4.0.12-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
+
+* Thu Jan 19 2023 Fedora Release Engineering <releng@fedoraproject.org> - 4.0.12-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_38_Mass_Rebuild
+
+* Thu Jul 21 2022 Fedora Release Engineering <releng@fedoraproject.org> - 4.0.12-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_37_Mass_Rebuild
+
+* Thu May 26 2022 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.12-1
 - Update to 4.0.12.
 
-* Tue Oct 26 2021 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.11-0.1
-- Update to 4.0.11.
-- Build with liburing support.
+* Thu Jan 20 2022 Fedora Release Engineering <releng@fedoraproject.org> - 4.0.10-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_36_Mass_Rebuild
 
-* Sun Jul 25 2021 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.10-0.1
+* Sat Sep 18 2021 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.10-1
 - Update to 4.0.10.
 
-* Thu May 06 2021 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.9-0.1
+* Tue Sep 14 2021 Sahana Prasad <sahana@redhat.com> - 4.0.9-3
+- Rebuilt with OpenSSL 3.0.0
+
+* Thu Jul 22 2021 Fedora Release Engineering <releng@fedoraproject.org> - 4.0.9-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_35_Mass_Rebuild
+
+* Sat May  8 2021 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.9-1
 - Update to 4.0.9.
 
-* Sat May 01 2021 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.8-0.1
+* Sat May  1 2021 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.8-1
 - Update to 4.0.8.
 
-* Mon Mar 15 2021 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.6-2.1
-- Add upstream patch to fix networking regression
+* Tue Jan 26 2021 Fedora Release Engineering <releng@fedoraproject.org> - 4.0.6-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_34_Mass_Rebuild
 
-* Mon Jan 18 2021 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.6-0.1
+* Mon Jan 18 2021 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.6-1
 - Update to 4.0.6.
 
-* Wed Nov 18 2020 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.5-0.1
+* Sat Nov 14 2020 Thomas Moschny <thomas.moschny@gmx.de> - 4.0.5-1
 - Update to 4.0.5.
 - Enable LXC bridge per default.
-- Adjust to upstream spec file.
+- Add wget dependency for the templates subpackage.
 
-* Thu Aug 06 2020 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.4-0.1
-- Update to 4.0.4.
+* Tue Jul 28 2020 Fedora Release Engineering <releng@fedoraproject.org> - 3.2.1-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_33_Mass_Rebuild
 
-* Fri Jul 03 2020 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.3-0.1
-- Update to 4.0.3.
-
-* Sun Apr 26 2020 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.2-0.1
-- Update to 4.0.2.
-
-* Mon Apr 06 2020 Reto Gantenbein <reto.gantenbein@linuxmonk.ch> 4.0.0-0.1
-- Update to 4.0.0.
+* Sat May 30 2020 Timotheus Pokorra <timotheus.pokorra@solidcharity.com> - 3.2.1-3
+- reapplying patch to fix cgroups cpuset initialization (rhbz#1816949)
 
 * Wed Jan 29 2020 Fedora Release Engineering <releng@fedoraproject.org> - 3.2.1-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_32_Mass_Rebuild
