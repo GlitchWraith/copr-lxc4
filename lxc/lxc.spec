@@ -37,10 +37,10 @@ BuildRequires:  pam-devel
 BuildRequires:  pkg-config
 BuildRequires:  systemd-devel
 BuildRequires:  pkgconfig(dbus-1)
-#%if %{?with_static_init}
+
 BuildRequires:  libcap-static
 BuildRequires:  glibc-static
-#%endif
+
 # lxc-extra subpackage not needed anymore, lxc-ls has been rewriten in
 # C and does not depend on the Python3 binding anymore
 Provides:       lxc-extra = %{version}-%{release}
@@ -225,9 +225,9 @@ cp -a %{SOURCE1} %{buildroot}%{_sysconfdir}/sysconfig/%{name}-net
 %{_libexecdir}/%{name}
 # fixme: should be in libexecdir?
 %{_sbindir}/init.%{name}
-%if %{?with_static_init}
+
 %{_sbindir}/init.%{name}.static
-%endif
+
 %{_bindir}/%{name}-autostart
 %{_sharedstatedir}/%{name}
 %dir %{_sysconfdir}/%{name}
