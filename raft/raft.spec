@@ -4,8 +4,8 @@ Release:        0.1%{?dist}
 Summary:        C implementation of the Raft consensus protocol
 
 License:        LGPL-3.0-only WITH LGPL-3.0-linking-exception
-URL:            https://raft.readthedocs.io/
-Source0:        %{URL}/archive/v%{version}.tar.gz
+URL:           https://github.com/cowsql/raft/archive/refs/
+Source0:        %{URL}tags/%{version}.tar.gz
 
 BuildRequires:  autoconf libtool
 BuildRequires:  gcc
