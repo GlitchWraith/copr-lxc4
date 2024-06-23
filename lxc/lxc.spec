@@ -37,10 +37,10 @@ BuildRequires:  pam-devel
 BuildRequires:  pkg-config
 BuildRequires:  systemd-devel
 BuildRequires:  pkgconfig(dbus-1)
-%if %{?with_static_init}
+#%if %{?with_static_init}
 BuildRequires:  libcap-static
 BuildRequires:  glibc-static
-%endif
+#%endif
 # lxc-extra subpackage not needed anymore, lxc-ls has been rewriten in
 # C and does not depend on the Python3 binding anymore
 Provides:       lxc-extra = %{version}-%{release}
